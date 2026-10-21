@@ -1,0 +1,52 @@
+# Claude Code Instructions
+
+## Mission
+
+Build Pixel Brew as an open-source, simulation-first coffee-shop automation project. The first meaningful result is one observable, tested order flowing from Odoo POS through an integration service and message broker to a simulated coffee machine, with the same backend events driving the pixel-art visualizer.
+
+The repository is the source of truth. Read `README.md`, `docs/ROADMAP.md`, and any relevant architecture decision records before implementing work.
+
+## Execution rules
+
+1. **One phase at a time.** Only execute the phase explicitly requested by the user. Do not continue into the next phase automatically.
+2. **Start with inspection.** Check the current branch, working tree, files, existing conventions, and recent changes before editing. Never assume the repository is still empty.
+3. **Plan before edits.** Summarize the phase goal, intended minimal changes, dependencies, tests, and acceptance criteria. For a small task, keep this brief.
+4. **Respect boundaries.** Do not add features from later phases just because they seem convenient. If a blocker requires a future-phase decision, document the blocker and propose the smallest safe prerequisite.
+5. **Use evidence.** Check current official documentation for version-sensitive decisions, especially Odoo, broker/client libraries, browser automation, and frontend tooling. Record important choices in ADRs; do not fabricate APIs or compatibility.
+6. **Keep diffs focused.** Follow KISS, DRY, YAGNI, and clear module boundaries. Prefer the smallest implementation that proves the phase's acceptance criteria.
+7. **Test every meaningful change.** Run relevant unit, integration, lint, type, build, and/or end-to-end checks that are available. Do not claim checks passed unless they actually ran. If a check cannot run, state why and give the exact follow-up.
+8. **Inspect your own diff.** Review changed files and the final diff; avoid unrelated formatting, generated files, secrets, local state, and dependency noise.
+9. **Update documentation.** Keep the roadmap phase status, setup instructions, environment examples, event contracts, and ADRs consistent with shipped behavior. Mark a phase complete only when its acceptance criteria are evidenced.
+10. **Commit discipline.** Do not commit, push, open a PR, merge, deploy, or change repository settings unless the user explicitly requests that action. When asked to commit, use one focused commit per coherent task and describe what was tested.
+11. **Ask only for genuine blockers.** If a reasonable safe assumption can be documented, proceed and record it. Do not ask the user to restate information already present in the repository.
+
+## Architecture rules
+
+- Keep Odoo as the POS/business application; do not recreate POS functionality in the visualizer.
+- Keep orchestration and machine transport behind a documented interface.
+- Treat a machine simulator and physical firmware as interchangeable implementations of a machine contract where practical.
+- Use a broker/service boundary between order processing and machine execution; do not couple the visualizer directly to Odoo's database.
+- The visualizer is a read-only projection of observed events/state. It is not the source of truth for orders or machine safety.
+- Use versioned command and event schemas, unique IDs, correlation IDs, timestamps, explicit state transitions, and idempotent handling where applicable.
+- Treat payment/order state and machine-job state as separate concepts. A machine command must only be issued after the chosen, documented order-confirmation/payment gate.
+- Keep local development reproducible. Do not require paid cloud services for the core simulator demo.
+- Secrets belong in environment variables or local ignored files. Commit only sanitized examples such as `.env.example`.
+- Keep MQTT/broker credentials and privileged service interfaces off public browser clients. Expose only the narrow visualization feed the frontend needs.
+- Do not add real payment credentials or process real payments in the MVP.
+
+## Physical hardware safety boundary
+
+Until the user explicitly provides a target machine, controller, and approved interface, implement simulation and interfaces only. Do not invent undocumented commands for a real machine. Never bypass device firmware safety protections or propose that UI state alone proves hardware is safe. Any future actuator control must include hardware-specific review, interlocks, timeout/failure behavior, and an appropriate emergency-stop strategy owned by the physical system.
+
+## Phase completion report
+
+At the end of a phase, report:
+
+- What changed and why.
+- Acceptance criteria met, with evidence.
+- Tests/checks run and results.
+- Known limitations or unresolved decisions.
+- Files and docs updated.
+- Recommended next phase, without starting it automatically.
+
+Update `docs/ROADMAP.md` only for work actually completed. Leave future phases as planned.
