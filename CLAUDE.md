@@ -2,7 +2,7 @@
 
 ## Mission
 
-Build Pixel Brew as an open-source, simulation-first, semi-automated coffee-shop project. Prove one observable order flowing from Odoo's configured ordering/POS flow through an integration service and message broker to a simulated coffee machine. Then visualize a lively shop with multiple virtual customers and a minimal human staff role: a waiter collects drinks only after the machine reports completion and delivers them to the correct customer/table. Scale to overlapping customer journeys only after the single-order vertical slice is reliable.
+Build Pixel Brew as an open-source, simulation-first, semi-automated coffee-shop project. Prove one observable cash-paid order flowing from the Odoo-backed ordering screen and cashier POS through an integration service and message broker to a simulated coffee machine. The default virtual staff roster is one cashier and one waiter; an optional second waiter may be used for a busier scenario. The cashier records cash payment in Odoo POS, including amount tendered/change where supported. The waiter collects drinks only after the machine reports completion and delivers them to the correct customer/table. Scale to overlapping customer journeys only after the single-order vertical slice is reliable.
 
 The repository is the source of truth. Read `README.md`, `docs/ROADMAP.md`, and any relevant architecture decision records before implementing work.
 
@@ -24,7 +24,11 @@ The repository is the source of truth. Read `README.md`, `docs/ROADMAP.md`, and 
 
 - Keep Odoo as the POS/business application; do not recreate POS functionality in the visualizer.
 - Treat the visual world as a semi-automated shop simulation, not a pure backend dashboard: customers arrive, order, wait, receive deliveries, and leave; machines prepare drinks; a minimal number of human staff handle service tasks such as carrying drinks.
-- Model customer, order, machine-job, waiter/task, and table/pickup-location states separately. Customer or waiter animations must not claim that an order is ready/delivered unless supported by authoritative events/state.
+- Model customer, order/payment, machine-job, cashier action, waiter/delivery-task, and table/pickup-location states separately. Customer, cash handover, cashier, machine, or waiter animations must not claim that an order is paid, ready, or delivered unless supported by authoritative events/state.
+- Treat the default staff roster as one cashier plus one waiter. Support an optional second waiter as a simple configuration/scenario only after the one-waiter flow works; do not build complex scheduling/payroll.
+- Cash payment is a first-class MVP path. A virtual customer may order on the configured Odoo-backed ordering screen and then go to the cashier. The cashier's payment must be recorded and validated through Odoo POS before the machine job is dispatched.
+- Odoo is the source of truth for payment records, amount due, cash amount tendered/change where supported, and paid/validated status. Do not build a parallel payment ledger or mark an order paid because the visualizer showed cash being handed over.
+- Do not require QRIS/digital payments for the MVP. A future digital method must be explicitly configured and verified; a simulated payment may only be labeled as simulation and must never be presented as a real provider confirmation.
 - Build and test one deterministic customer/order/waiter path first. Only then add multiple concurrent customers, queues, table assignment, and animation polish. Avoid simulating a full business-management game unless explicitly requested.
 - Use browser-driven fake customers against the configured Odoo-backed UI for demo flows. Do not treat such automation as proof that Odoo POS is a production self-service kiosk.
 - Keep orchestration and machine transport behind a documented interface.
@@ -32,7 +36,7 @@ The repository is the source of truth. Read `README.md`, `docs/ROADMAP.md`, and 
 - Use a broker/service boundary between order processing and machine execution; do not couple the visualizer directly to Odoo's database.
 - The visualizer is a read-only projection of observed events/state. It is not the source of truth for orders or machine safety.
 - Use versioned command and event schemas, unique IDs, correlation IDs, timestamps, explicit state transitions, and idempotent handling where applicable.
-- Treat payment/order state and machine-job state as separate concepts. A machine command must only be issued after the chosen, documented order-confirmation/payment gate.
+- Treat order, payment, machine-job, and delivery-task states as separate concepts. For the MVP, document and enforce the chosen cash payment gate: a machine command must only be issued after Odoo reports the order paid/validated.
 - Keep local development reproducible. Do not require paid cloud services for the core simulator demo.
 - Secrets belong in environment variables or local ignored files. Commit only sanitized examples such as `.env.example`.
 - Keep MQTT/broker credentials and privileged service interfaces off public browser clients. Expose only the narrow visualization feed the frontend needs.
