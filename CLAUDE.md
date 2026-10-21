@@ -2,7 +2,7 @@
 
 ## Mission
 
-Build Pixel Brew as an open-source, simulation-first coffee-shop automation project. The first meaningful result is one observable, tested order flowing from Odoo POS through an integration service and message broker to a simulated coffee machine, with the same backend events driving the pixel-art visualizer.
+Build Pixel Brew as an open-source, simulation-first, semi-automated coffee-shop project. Prove one observable order flowing from Odoo's configured ordering/POS flow through an integration service and message broker to a simulated coffee machine. Then visualize a lively shop with multiple virtual customers and a minimal human staff role: a waiter collects drinks only after the machine reports completion and delivers them to the correct customer/table. Scale to overlapping customer journeys only after the single-order vertical slice is reliable.
 
 The repository is the source of truth. Read `README.md`, `docs/ROADMAP.md`, and any relevant architecture decision records before implementing work.
 
@@ -23,6 +23,10 @@ The repository is the source of truth. Read `README.md`, `docs/ROADMAP.md`, and 
 ## Architecture rules
 
 - Keep Odoo as the POS/business application; do not recreate POS functionality in the visualizer.
+- Treat the visual world as a semi-automated shop simulation, not a pure backend dashboard: customers arrive, order, wait, receive deliveries, and leave; machines prepare drinks; a minimal number of human staff handle service tasks such as carrying drinks.
+- Model customer, order, machine-job, waiter/task, and table/pickup-location states separately. Customer or waiter animations must not claim that an order is ready/delivered unless supported by authoritative events/state.
+- Build and test one deterministic customer/order/waiter path first. Only then add multiple concurrent customers, queues, table assignment, and animation polish. Avoid simulating a full business-management game unless explicitly requested.
+- Use browser-driven fake customers against the configured Odoo-backed UI for demo flows. Do not treat such automation as proof that Odoo POS is a production self-service kiosk.
 - Keep orchestration and machine transport behind a documented interface.
 - Treat a machine simulator and physical firmware as interchangeable implementations of a machine contract where practical.
 - Use a broker/service boundary between order processing and machine execution; do not couple the visualizer directly to Odoo's database.
