@@ -4,17 +4,18 @@ This roadmap is an execution contract, not a request to build everything at once
 
 ## Product outcome
 
-Demonstrate one complete local flow:
+Demonstrate a semi-automated coffee shop that feels alive and is backed by real system state:
 
-1. A fake customer interacts with the real Odoo POS UI and places a test order.
-2. After the documented confirmation/payment gate, Odoo integration emits an order-ready-for-production intent.
+1. A virtual customer arrives and interacts with the configured Odoo-backed ordering/POS UI.
+2. After the documented confirmation/payment gate, the integration emits an order-ready-for-production intent.
 3. An integration service creates a machine job and sends a versioned command through a message broker.
-4. A coffee-machine simulator accepts and processes the job, then emits lifecycle events.
-5. The integration layer records/normalizes those events and makes them available to Odoo and the visualizer.
-6. A pixel-art coffee shop visualizer animates only the states supported by those events.
-7. Automated tests verify the successful path and representative failures.
+4. A coffee-machine simulator processes the job and emits lifecycle events.
+5. When the machine reports the drink ready, a waiter character collects it and delivers it to the correct customer/table or pickup location.
+6. The customer receives the order, completes the visit, and leaves.
+7. A pixel-art coffee shop scene shows many customer visits and overlapping orders, driven by observed system state rather than invented success animations.
+8. Automated tests verify the happy path and representative failure/recovery scenarios.
 
-The MVP is a local demonstration with simulated equipment—not a production POS deployment or proof of physical-machine safety.
+Build this incrementally: first one customer, one order, one simulated machine, and one waiter; then multiple concurrent customers, queues, simple table/pickup assignment, and minimal staff scheduling. The MVP is a local demonstration with simulated equipment—not a production POS deployment or proof of physical-machine safety.
 
 ## Non-goals for the first working demo
 
@@ -26,6 +27,8 @@ Do not expand the MVP into these unless the user explicitly changes scope:
 - Kubernetes, microservices for every component, or cloud deployment before local value is proven.
 - An autonomous agent that can operate production equipment.
 - A large pixel-art world before the end-to-end event path works.
+- Complex staff rostering, wage/payroll systems, table-service optimization, full restaurant economics, or a complete business-management game.
+- Treating customer/waiter animation as authoritative when backend/order/machine state is missing or stale.
 
 ## Proposed logical architecture
 
@@ -74,6 +77,8 @@ This is a logical view, not a mandate to create every box as a separate deployab
 Tasks:
 - Inspect the live repository and confirm the actual starting state.
 - Clarify and document the MVP user journey and machine/order state boundaries.
+- Document the intended shop scene and operating model: multiple virtual customers, automated drink preparation, initially one waiter for collection/delivery, and simple table or pickup-location assignment.
+- Define explicit state boundaries for customer visit, order, machine job, waiter delivery task, and table/pickup location; do not collapse them into one status.
 - Research current official documentation for the selected Odoo version, Community/Enterprise feature boundaries, POS extensibility, deployment options, the chosen broker, and relevant client libraries.
 - Choose a locally reproducible development approach. Prefer tools that can be run without paid cloud services.
 - Decide the minimum set of languages and frameworks for Odoo integration, orchestration, visualizer, simulator, and browser automation. Do not add a framework without a clear need.
@@ -205,7 +210,11 @@ Acceptance criteria:
 
 Tasks:
 - Select and implement the smallest renderer/UI architecture supported by the Phase 0 ADR.
-- Create a first scene with cashier/order point, one customer, one espresso machine, and an order pickup point.
+- Create an initial scene with entrance/exit, ordering/POS point, waiting/queue area, one coffee machine/counter, one waiter, and a few simple tables or pickup locations.
+- Implement the baseline customer journey: arrive → order → wait → order becomes ready → waiter collects drink → waiter delivers to the assigned customer/table → customer finishes and leaves.
+- Make waiter delivery a separate task/state transition triggered only after authoritative machine/order-ready state. The visualizer must show delays, blocked deliveries, or errors honestly.
+- After the single-customer path works, allow multiple customer characters and overlapping orders. Use a small initial staff roster (one waiter) and simple rules before considering more staff or scheduling logic.
+- Distinguish a customer-facing ordering animation from the actual Odoo-backed order event. Never create a successful order solely because an animation played.
 - Build a read-only visualization feed from normalized backend state/events; use SSE/WebSocket or another documented narrow interface as justified by the chosen stack.
 - Define a visual state mapping: arrival/order, waiting/queued, machine accepted, heating, brewing, completed/pickup, and error/offline.
 - Show selected order/job details and a compact event timeline so the scene is useful for debugging as well as presentation.
@@ -215,6 +224,9 @@ Tasks:
 
 Acceptance criteria:
 - Visual states are driven by received system events or a documented state snapshot, not local timers pretending the backend succeeded.
+- At least one customer can be followed visually from arrival through order, machine preparation, waiter pickup/delivery, and departure.
+- Multiple customers can appear in the scene and at least two order lifecycles can overlap without confusing customer, order, machine job, or delivery task identities.
+- The initial waiter only collects a drink after the machine/order reports ready and delivers it to the intended customer/table.
 - A single order can be followed visually from queue to completion.
 - Disconnecting the feed produces a visible stale/disconnected indicator, not a false success animation.
 - The UI remains usable at common desktop viewport sizes and has an accessible textual status/event fallback.
@@ -226,7 +238,9 @@ Acceptance criteria:
 
 Tasks:
 - Add a documented one-command or small, explicit command sequence to start the stack and run the demo.
-- Run the fake customer → Odoo → orchestrator → broker → simulator → events → visualizer journey.
+- Run the fake customer → Odoo → orchestrator → broker → simulator → readiness event → waiter delivery task → visualizer journey.
+- Verify multiple customer arrivals and at least two overlapping demo orders after the single-order scenario is reliable.
+- Verify the waiter does not collect an unfinished drink, a delivered order is linked to the right customer/table, and a failed/offline machine does not produce a false delivery.
 - Add repeatable integration/end-to-end tests where practical.
 - Add scenarios for machine offline, command timeout, duplicate command, rejected recipe, broker restart, simulator crash, failed brew, and visualizer disconnection.
 - Ensure logs include correlation IDs across services and avoid leaking secrets.
