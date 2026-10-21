@@ -6,14 +6,17 @@ This roadmap is an execution contract, not a request to build everything at once
 
 Demonstrate a semi-automated coffee shop that feels alive and is backed by real system state:
 
-1. A virtual customer arrives and interacts with the configured Odoo-backed ordering/POS UI.
-2. After the documented confirmation/payment gate, the integration emits an order-ready-for-production intent.
-3. An integration service creates a machine job and sends a versioned command through a message broker.
-4. A coffee-machine simulator processes the job and emits lifecycle events.
-5. When the machine reports the drink ready, a waiter character collects it and delivers it to the correct customer/table or pickup location.
-6. The customer receives the order, completes the visit, and leaves.
-7. A pixel-art coffee shop scene shows many customer visits and overlapping orders, driven by observed system state rather than invented success animations.
-8. Automated tests verify the happy path and representative failure/recovery scenarios.
+1. A virtual customer arrives and orders through the configured Odoo-backed ordering screen.
+2. For cash orders, the customer joins the cashier queue. A cashier character receives the virtual cash payment and records the transaction through Odoo POS.
+3. Only after Odoo reports the configured payment/confirmation gate is satisfied does the integration emit an order-ready-for-production intent.
+4. An integration service creates a machine job and sends a versioned command through a message broker.
+5. A coffee-machine simulator processes the job and emits lifecycle events.
+6. When the machine reports the drink ready, a waiter character collects it and delivers it to the correct customer/table or pickup location.
+7. The customer receives the order, completes the visit, and leaves.
+8. A pixel-art coffee shop scene shows many customer visits and overlapping orders, driven by observed system state rather than invented success animations.
+9. Automated tests verify the cash path, happy path, and representative failure/recovery scenarios.
+
+Default simulated staff: one cashier and one waiter. A second waiter is an optional high-traffic configuration, not a required dependency for the initial MVP.
 
 Build this incrementally: first one customer, one order, one simulated machine, and one waiter; then multiple concurrent customers, queues, simple table/pickup assignment, and minimal staff scheduling. The MVP is a local demonstration with simulated equipment—not a production POS deployment or proof of physical-machine safety.
 
@@ -21,7 +24,9 @@ Build this incrementally: first one customer, one order, one simulated machine, 
 
 Do not expand the MVP into these unless the user explicitly changes scope:
 
-- Real payment processing or handling real card data.
+- Real-money transactions, real card processing, or a production QRIS/payment-provider integration.
+- Making digital payment a prerequisite. Cash-first payment via Odoo POS is the required MVP path.
+- A parallel custom payment ledger that duplicates Odoo's financial records.
 - Direct physical pump, boiler, heater, pressure, or other actuator control.
 - Multi-branch, inventory forecasting, loyalty, delivery, or enterprise analytics.
 - Kubernetes, microservices for every component, or cloud deployment before local value is proven.
@@ -76,8 +81,11 @@ This is a logical view, not a mandate to create every box as a separate deployab
 
 Tasks:
 - Inspect the live repository and confirm the actual starting state.
-- Clarify and document the MVP user journey and machine/order state boundaries.
-- Document the intended shop scene and operating model: multiple virtual customers, automated drink preparation, initially one waiter for collection/delivery, and simple table or pickup-location assignment.
+- Clarify and document the MVP user journey and machine/order/payment state boundaries.
+- Document the intended shop scene and operating model: multiple virtual customers, automated drink preparation, one cashier, one waiter, and an optional second waiter for high-traffic scenarios.
+- Decide how the selected Odoo version supports the ordering screen/self-order path and cashier-based cash payments. Do not assume that cash can be paid directly inside the customer self-order UI.
+- Define the cash checkout flow: order at screen → cashier queue → cash received/tendered amount recorded in Odoo POS → Odoo payment/validation state observed → machine job allowed.
+- Keep QRIS/digital payment optional until the Odoo version, configuration/provider, and desired validation behavior have been verified.
 - Define explicit state boundaries for customer visit, order, machine job, waiter delivery task, and table/pickup location; do not collapse them into one status.
 - Research current official documentation for the selected Odoo version, Community/Enterprise feature boundaries, POS extensibility, deployment options, the chosen broker, and relevant client libraries.
 - Choose a locally reproducible development approach. Prefer tools that can be run without paid cloud services.
@@ -91,11 +99,15 @@ Deliverables:
 - `docs/decisions/ADR-0001-stack-and-local-development.md`
 - `docs/decisions/ADR-0002-order-and-machine-boundaries.md`
 - `docs/decisions/ADR-0003-event-transport-and-visualization-feed.md`
+- `docs/decisions/ADR-0004-payment-and-staffing-flow.md`
 - A concise MVP flow and glossary in project docs.
 
 Acceptance criteria:
 - The selected stack and versions have links to current official sources.
-- Odoo edition/version and how the target POS flow is extended are explicitly justified.
+- Odoo edition/version and how the target ordering/self-order screen and cashier payment flow are implemented are explicitly justified with official documentation.
+- The cash payment gate is precise and does not depend on a visual animation.
+- Staff responsibilities and default roster (one cashier, one waiter; optional second waiter later) are documented.
+- Digital payment/QRIS is clearly optional and its future integration requirements are listed rather than assumed.
 - The local development and testing approach is documented.
 - Machine state is not conflated with payment/order state.
 - Physical hardware assumptions are explicitly marked unknown, not guessed.
@@ -128,7 +140,8 @@ Acceptance criteria:
 **Goal:** define the language and rules used by Odoo integration, orchestrator, simulator/firmware, and visualizer.
 
 Tasks:
-- Define separate order/payment state and machine-job state models.
+- Define separate customer-visit, order, payment, machine-job, cashier/payment action, waiter/delivery-task, and table/pickup-location state models.
+- Define cash checkout semantics and authoritative payment fields from Odoo (amount due, amount tendered/change where supported, payment method, paid/validated state). Avoid duplicating Odoo's accounting/payment ledger.
 - Define command and event envelopes with schema version, unique ID, type, UTC timestamp, source, correlation ID, aggregate/job ID, and typed payload.
 - Define a minimal menu/recipe identifier contract without assuming a particular machine's capabilities.
 - Define state transitions, retryable vs terminal errors, timeouts, duplicate delivery behavior, and cancellation rules.
@@ -179,8 +192,9 @@ Tasks:
 - Keep a clear manual recovery/error state if machine execution fails after the POS order is confirmed.
 
 Acceptance criteria:
-- One manually created test order crosses the documented gate and produces exactly one machine job.
-- Unconfirmed/cancelled carts do not start a machine job.
+- One cash order is created through the configured ordering/POS flow, paid at the cashier through Odoo POS, and produces exactly one machine job only after Odoo reports paid/validated.
+- The cashier flow correctly records amount tendered and change using Odoo's supported POS workflow.
+- Unpaid, partially paid, cancelled, or invalid orders do not start a machine job.
 - Integration errors are visible and diagnosable without corrupting payment/order state.
 - Automated tests cover duplicate requests, unsupported recipe, unavailable broker, and failed machine job.
 - No real payment gateway or hardware is needed.
@@ -191,7 +205,9 @@ Acceptance criteria:
 
 Tasks:
 - Use browser automation (for example, Playwright if selected in Phase 0) as a separate development/test tool.
-- Create a clearly labeled demo customer flow that opens the POS, selects a test item, and completes the configured mock/test checkout path.
+- Create a clearly labeled demo customer flow that opens the ordering screen, selects a test item, and then moves through the cashier queue for a cash payment.
+- Automate the cashier's Odoo POS workflow in a separate, clearly identified test actor/session where possible; do not bypass Odoo by writing payment rows directly to the database.
+- Keep the cash interaction explicitly simulated: the customer character hands over virtual cash, while Odoo POS records the test payment and calculates/records change.
 - Avoid hard-coded fragile selectors when stable labels, test IDs, or documented extension points are available.
 - Keep test identities and credentials local and non-production.
 - Capture enough browser logs/screenshots/traces to diagnose failures without recording sensitive data.
@@ -199,8 +215,9 @@ Tasks:
 
 Acceptance criteria:
 - A clean local run can execute the customer journey end-to-end in the browser.
-- The fake customer uses the real POS UI rather than writing directly to the application database.
-- The test does not use real payment methods or real customer data.
+- The fake customer uses the real configured ordering/POS UI rather than writing orders directly to the application database.
+- The cash payment is recorded by the supported Odoo POS UI/workflow; the fake customer does not create a payment by writing directly to the database.
+- The test does not use real money, real payment gateways, or real customer data.
 - Failures produce actionable diagnostics and a non-zero test result.
 - The customer simulator can be disabled without affecting the machine simulator or visualizer.
 
@@ -210,7 +227,8 @@ Acceptance criteria:
 
 Tasks:
 - Select and implement the smallest renderer/UI architecture supported by the Phase 0 ADR.
-- Create an initial scene with entrance/exit, ordering/POS point, waiting/queue area, one coffee machine/counter, one waiter, and a few simple tables or pickup locations.
+- Create an initial scene with entrance/exit, ordering screen, cashier and cashier queue, waiting area, one coffee machine/counter, one waiter, and a few simple tables or pickup locations.
+- Visualize the default staff roster of one cashier and one waiter. Allow one optional second waiter in a higher-traffic scenario only after the baseline service flow works.
 - Implement the baseline customer journey: arrive → order → wait → order becomes ready → waiter collects drink → waiter delivers to the assigned customer/table → customer finishes and leaves.
 - Make waiter delivery a separate task/state transition triggered only after authoritative machine/order-ready state. The visualizer must show delays, blocked deliveries, or errors honestly.
 - After the single-customer path works, allow multiple customer characters and overlapping orders. Use a small initial staff roster (one waiter) and simple rules before considering more staff or scheduling logic.
@@ -224,7 +242,9 @@ Tasks:
 
 Acceptance criteria:
 - Visual states are driven by received system events or a documented state snapshot, not local timers pretending the backend succeeded.
-- At least one customer can be followed visually from arrival through order, machine preparation, waiter pickup/delivery, and departure.
+- At least one customer can be followed visually from arrival, order placement, cashier cash payment, machine preparation, waiter pickup/delivery, and departure.
+- An order cannot trigger machine preparation until Odoo's paid/validated state has been observed.
+- The cashier queue and waiter delivery tasks are separate, observable activities; adding a second waiter does not change order/payment truth.
 - Multiple customers can appear in the scene and at least two order lifecycles can overlap without confusing customer, order, machine job, or delivery task identities.
 - The initial waiter only collects a drink after the machine/order reports ready and delivers it to the intended customer/table.
 - A single order can be followed visually from queue to completion.
@@ -240,6 +260,7 @@ Tasks:
 - Add a documented one-command or small, explicit command sequence to start the stack and run the demo.
 - Run the fake customer → Odoo → orchestrator → broker → simulator → readiness event → waiter delivery task → visualizer journey.
 - Verify multiple customer arrivals and at least two overlapping demo orders after the single-order scenario is reliable.
+- Verify unpaid orders do not trigger machine jobs, the cashier records test cash payments through Odoo POS, and any change calculation shown matches Odoo's recorded transaction.
 - Verify the waiter does not collect an unfinished drink, a delivered order is linked to the right customer/table, and a failed/offline machine does not produce a false delivery.
 - Add repeatable integration/end-to-end tests where practical.
 - Add scenarios for machine offline, command timeout, duplicate command, rejected recipe, broker restart, simulator crash, failed brew, and visualizer disconnection.
@@ -312,7 +333,7 @@ Do not mark a phase completed merely because its files exist. Mark it complete o
 
 ## Roadmap status
 
-- [ ] Phase 0 — Discovery and architecture decisions
+- [ ] Phase 0 — Discovery and architecture decisions (including cash payment/staffing ADR)
 - [ ] Phase 1 — Repository and local development foundation
 - [ ] Phase 2 — Shared domain model and contracts
 - [ ] Phase 3 — Machine simulator and orchestration
