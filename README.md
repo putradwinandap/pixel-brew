@@ -1,27 +1,31 @@
 # Pixel Brew
 
-Pixel Brew is an open-source coffee-shop automation demo that connects a POS workflow, a simulated coffee machine, and a pixel-art visualization of backend activity.
+Pixel Brew is an open-source semi-automated coffee-shop simulation and automation platform. It connects an Odoo-backed ordering flow, simulated coffee machines, a small human staff, and a pixel-art world that visualizes both customer-facing activity and backend events.
 
-The goal is to make the system observable and useful for collaboration between software, backend, and embedded/IoT contributors. The first milestone is a fully local demo that works without physical hardware.
+The project is intended to be built collaboratively by software, backend, frontend/game-UI, and embedded/IoT contributors. The first milestone is a reproducible local demo that needs no physical hardware or paid cloud service.
 
 ## Vision
 
-A virtual customer places an order through Odoo POS. After the order reaches the configured confirmed/paid state, an integration service creates a machine job and sends a command through a message broker. A coffee-machine simulator processes that command and publishes status events. The visualizer turns those real events into an animated pixel-art coffee shop.
+The coffee shop should feel alive: many virtual customers arrive, place orders through the configured Odoo-backed ordering/POS flow, wait while drinks are prepared, and receive their drinks from a minimal number of human staff characters. The coffee machine is automated; a waiter still performs the human service step of picking up completed drinks and delivering them to the right customer or table. Customers can then finish their visit and leave.
 
-The visualization must reflect the actual application state. It must not invent successful activity when a service or machine is disconnected.
+Behind the scenes, confirmed demo orders become machine jobs through an integration service and message broker. A machine simulator processes jobs and publishes lifecycle events. Those real system states drive the world: customers queue, the machine works, the waiter collects ready drinks, and orders are delivered. The visualizer must never fake a successful machine or delivery state when the underlying event has not occurred.
+
+The intended operating model is **high automation with minimal staff**, not a staffless shop. Customer behavior, machine behavior, and waiter delivery should be separate entities with explicit state transitions.
 
 ## MVP
 
-- One Odoo POS instance and one test product.
-- One virtual customer flow through the POS UI.
-- One simulated coffee machine.
-- A documented command/event contract.
-- A local message broker and integration service.
-- A pixel-art visualizer driven by backend events.
-- Repeatable local setup and automated end-to-end tests.
-- Failure demonstrations such as machine offline, timeout, duplicate command, and failed brew.
+- One local Odoo POS instance and a small demo menu.
+- Virtual customers interacting with the configured ordering/POS UI; start with one deterministic browser journey, then scale to several concurrent customers.
+- One simulated coffee machine with an explicit job lifecycle.
+- A small staff roster, initially one waiter who collects completed drinks and delivers them to the correct customer/table.
+- A simple shop scene with entry/exit, ordering point, waiting area, machine/counter, and a few tables or pickup locations.
+- A documented command/event contract and local message broker/integration service.
+- A pixel-art visualizer driven by observed system events and current state.
+- Repeatable local setup and automated success/failure tests.
 
-The MVP does **not** require a physical coffee machine, real payment processing, cloud deployment, multi-branch operations, or production hardware control.
+The first vertical slice may use one customer, one drink, one machine, and one waiter to prove the flow. The intended visual milestone then expands to multiple customers whose orders overlap naturally, while machine and waiter activity remains consistent with backend state.
+
+The MVP does **not** require a physical coffee machine, real payment processing, paid cloud hosting, multi-branch operations, or production hardware control. Browser-driven customers are demo/test actors, not a production self-service product.
 
 ## Project principles
 
